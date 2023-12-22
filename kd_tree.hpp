@@ -79,7 +79,7 @@ class KD_Tree_Base {
 		const std::size_t start,
 		const std::size_t end,
 		const std::size_t depth,
-		Node*& tree_place
+		Node*& tree_place // I believe this reference slightly helps with tail call optimization on the last layer
 	) {
 
 		if ( start == end ) {
