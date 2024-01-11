@@ -5,20 +5,34 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
-			"type": "vgdb",
+			"type": "cppdbg",
 			"request": "launch",
 			"name": "KDTreeExpirements Debug",
 			"program": "${workspaceFolder}/build/KDTreeExpirements",
 			"args": [],
-			"cwd": "${workspaceFolder}"
+			"cwd": "${workspaceFolder}",
+			"setupCommands": [
+				{
+					"description": "Enable pretty-printing for gdb",
+					"text": "-enable-pretty-printing",
+					"ignoreFailures": true
+				}
+			]
 		},
 		{
-			"type": "vgdb",
+			"type": "cppdbg",
 			"request": "launch",
 			"name": "Test Debug",
 			"program": "${workspaceFolder}/build/SpatialLibTest",
 			"args": [],
-			"cwd": "${workspaceFolder}"
+			"cwd": "${workspaceFolder}",
+			"setupCommands": [
+				{
+					"description": "Enable pretty-printing for gdb",
+					"text": "-enable-pretty-printing",
+					"ignoreFailures": true
+				}
+			]
 		}
 	]
 }
