@@ -287,7 +287,7 @@ std::uint64_t distance_from_median( std::vector<std::uint64_t> vec, std::size_t 
 }
 
 template <typename T>
-TestResults test_creation( const int iterations, std::size_t vector_size, T data_container ) {
+TestResults test_creation_for_all( const int iterations, std::size_t vector_size, T data_container ) {
 	const std::size_t TIME_COUNT = 6;
 	std::array<std::vector<std::uint64_t>, TIME_COUNT> all_times;
 	std::cout << "KD Tree Creation" << '\n';
@@ -362,7 +362,7 @@ TestResults test_creation( const int iterations, std::size_t vector_size, T data
 	// Just comment to here
 
 	ResultTable results_table = {
-		std::array<std::string, 3>( { "Median", "Difference", "M.A.D." } ),
+		std::array<std::string, 3>( { "Median", "Difference", "Med.A.D." } ),
 		std::array<TestResults, 3>( { results, results - results.min(), median_absolute_deviation }
 		)
 	};
@@ -370,7 +370,7 @@ TestResults test_creation( const int iterations, std::size_t vector_size, T data
 	return results;
 }
 
-void test_array() {
+void compare_creations_for_all() {
 	TestResults totals;
 	TestResults totals_per_100;
 	std::array<TestResults, 10> median_results;
@@ -390,7 +390,7 @@ void test_array() {
 		}
 
 		vector_size_headers[i] = std::to_string( vector_size );
-		TestResults results = test_creation( 25 * ( i + 1 ), vector_size, array_int_vector );
+		TestResults results = test_creation_for_all( 25 * ( i + 1 ), vector_size, array_int_vector );
 		median_results[i] = results;
 		totals_per_100 += results * 100 / vector_size;
 		totals += results;
@@ -428,8 +428,7 @@ void test_array() {
 }
 
 int main() {
-
-	test_array();
+	compare_creations_for_all();
 	return 0;
 }
 // NOLINTEND(cert-msc30-c,cert-msc50-cpp,concurrency-mt-unsafe)
