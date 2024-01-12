@@ -15,70 +15,71 @@ namespace spatial_lib_recursive_template {
 
 namespace kd_tree_types {
 
-template <typename Container> concept IsContainer = requires( Container container ) { 
+template <typename Container> concept IsContainer = requires( Container container ) {
 	{ container.begin() } -> std::same_as<typename Container::iterator>;
-    { container.end() } -> std::same_as<typename Container::iterator>;
+	{ container.end() } -> std::same_as<typename Container::iterator>;
 } || std::is_array_v<Container>;
 
-template <typename T> concept IsValidCoordinates = IsContainer<T> &&
-requires(T a, T b, std::size_t index) {
-    { a[index] < b[index] } -> std::convertible_to<bool>;
+template <typename T> concept IsValidCoordinates =
+	IsContainer<T> && requires( T a, T b, std::size_t index ) {
+		{ a[index] < b[index] } -> std::convertible_to<bool>;
+	};
+
+template <typename T> concept IsValidDataType = IsValidCoordinates<decltype( T::coordinates )>;
+
+template <typename Container> concept InputContainsValidDataTypeNotCArray =
+	IsValidDataType<typename Container::value_type>;
+
+template <typename Container> concept InputCArrayContainsValidDataType =
+	std::is_array_v<Container> && IsValidDataType<std::remove_all_extents_t<Container>>;
+
+template <typename Container> concept IsDynamicContainer = requires( Container container ) {
+	{ container.push_back( Container::value_type ) } -> std::same_as<void>;
 };
 
-template <typename T> concept IsValidDataType = IsValidCoordinates<decltype(T::coordinates)>;
+template <typename Container> concept IsValidInput = IsContainer<Container> &&
+	( InputCArrayContainsValidDataType<Container> ||
+	  InputContainsValidDataTypeNotCArray<Container> );
+// this shouldn't align with a space!! clang-format :(
 
-template <typename Container> concept InputContainsValidDataTypeNotCArray = IsValidDataType<typename Container::value_type>;
+template <typename Container> concept IsStaticContainer =
+	IsContainer<Container> && ( !IsDynamicContainer<Container> );
+template <typename Container> concept IsStaticContainerNotCArray =
+	IsStaticContainer<Container> && ( !std::is_array_v<Container> );
 
-template <typename Container> concept InputCArrayContainsValidDataType = std::is_array_v<Container> && IsValidDataType<std::remove_all_extents_t<Container>>;
+template <typename T> constexpr const void* staticSize = nullptr;
 
-template <typename Container> concept IsDynamicContainer = requires(Container container){
-	{ container.push_back(Container::value_type) } -> std::same_as<void>;
-};
+template <IsStaticContainerNotCArray T> constexpr std::size_t staticSize<T> = std::tuple_size_v<T>;
 
-template <typename Container> concept IsValidInput = IsContainer<Container> && (InputCArrayContainsValidDataType<Container> || InputContainsValidDataTypeNotCArray<Container>);
+template <typename T, size_t n> constexpr std::size_t staticSize<T[n]> = n;
 
-template <typename Container> concept IsStaticContainer = IsContainer<Container> && (!IsDynamicContainer<Container>);
-template <typename Container> concept IsCArray = std::is_array_v<Container>;
-template <typename Container> concept IsStaticContainerNotCArray = IsStaticContainer<Container> && (!IsCArray<Container>);
+template <typename Container> concept InputContainsStaticCoordinates =
+	(std::is_array_v<Container> &&
+	 IsStaticContainer<decltype( std::remove_all_extents_t<Container>::coordinates )>) ||
+	IsStaticContainer<decltype( Container::value_type::coordinates )>;
 
-template<typename T>
-constexpr const void* staticSize = nullptr; 
+template <typename T> constexpr const void* staticDimensions = nullptr;
 
-template<IsStaticContainerNotCArray T>
-constexpr std::size_t staticSize<T> = std::tuple_size_v<T>;
+template <typename Container> concept InputCArrayContainsStaticCoordinates =
+	InputCArrayContainsValidDataType<Container> && InputContainsStaticCoordinates<Container>;
+template <typename Container> concept InputContainsStaticCoordinatesNotCArray =
+	InputContainsValidDataTypeNotCArray<Container> && InputContainsStaticCoordinates<Container>;
 
-template<IsCArray T>
-constexpr std::size_t staticSize<T> = std::extent_v<T>;
+template <InputCArrayContainsStaticCoordinates T>
+constexpr std::size_t staticDimensions<T> =
+	staticSize<decltype( std::remove_all_extents_t<T>::coordinates )>;
 
-template<typename Container> concept InputContainsStaticCoordinates =
-	(
-		IsCArray<Container> && 
-		IsStaticContainer<decltype(std::remove_all_extents_t<Container>::coordinates)>
-	) ||
-	IsStaticContainer<decltype(Container::value_type::coordinates)>;
-
-template<typename T>
-constexpr const void* staticDimensions = nullptr; 
-
-template <typename Container> concept InputCArrayContainsStaticCoordinates = InputCArrayContainsValidDataType<Container> && InputContainsStaticCoordinates<Container>;
-template <typename Container> concept InputContainsStaticCoordinatesNotCArray = InputContainsValidDataTypeNotCArray<Container> && InputContainsStaticCoordinates<Container>;
-
-template<InputCArrayContainsStaticCoordinates T>
-constexpr std::size_t staticDimensions<T> = staticSize<decltype(std::remove_all_extents_t<T>::coordinates)>;
-
-template<InputContainsStaticCoordinatesNotCArray T>
-constexpr std::size_t staticDimensions<T> = staticSize<decltype(T::value_type::coordinates)>;
+template <InputContainsStaticCoordinatesNotCArray T>
+constexpr std::size_t staticDimensions<T> = staticSize<decltype( T::value_type::coordinates )>;
 
 }  // namespace kd_tree_types
 
-template <kd_tree_types::IsValidInput Input>
-class KD_Tree {
+template <kd_tree_types::IsValidInput Input> class KD_Tree {
 
 	using DataType = std::conditional_t<
 		std::is_array_v<Input>,
 		std::remove_all_extents_t<Input>,
-		typename Input::value_type
-	>;
+		typename Input::value_type>;
 
 	struct Node {
 		Node* left;
@@ -89,8 +90,7 @@ class KD_Tree {
 	using PresortedContainer = std::conditional_t<
 		kd_tree_types::InputContainsStaticCoordinates<Input>,
 		std::array<std::vector<Node*>, kd_tree_types::staticDimensions<Input>>,
-		std::vector<std::vector<Node*>>
-	>;
+		std::vector<std::vector<Node*>>>;
 
 	std::vector<Node> nodes;
 
@@ -101,10 +101,7 @@ class KD_Tree {
 	PresortedContainer presorted_dimensions;
 
 	void link_tree(
-		const std::size_t start,
-		const std::size_t end,
-		const std::size_t depth,
-		Node*& tree_place
+		const std::size_t start, const std::size_t end, const std::size_t depth, Node*& tree_place
 	) {
 
 		if ( start == end ) {
@@ -119,8 +116,9 @@ class KD_Tree {
 		link_tree( midpoint + 1, end, depth + 1, tree_place->right );
 	}
 
-	inline void presort_dimension (std::size_t dim) {
-		std::sort(std::execution::par_unseq,
+	inline void presort_dimension( std::size_t dim ) {
+		std::sort(
+			std::execution::par_unseq,
 			presorted_dimensions[dim].begin(),
 			presorted_dimensions[dim].end(),
 			[dim]( const Node* node1, const Node* node2 ) {
@@ -130,22 +128,18 @@ class KD_Tree {
 	}
 
 	public:
-	explicit KD_Tree<Input>( Input& data_vector ) {
-		generate_tree( data_vector );
-	};
+	explicit KD_Tree<Input>( Input& data_vector ) { generate_tree( data_vector ); };
 
-	void generate_tree( Input& data_vector ) { 
-		generate_tree( &data_vector ); 
-	}
+	void generate_tree( Input& data_vector ) { generate_tree( &data_vector ); }
 
 	void generate_tree( Input* data_container = nullptr ) {
-		if constexpr (kd_tree_types::InputContainsStaticCoordinates<Input>) {
+		if constexpr ( kd_tree_types::InputContainsStaticCoordinates<Input> ) {
 			dimensions = kd_tree_types::staticDimensions<Input>;
-		} else if (data_container != nullptr && !data_container->empty()) {
-			dimensions = (*data_container)[0].coordinates.size();
+		} else if ( data_container != nullptr && !data_container->empty() ) {
+			dimensions = ( *data_container )[0].coordinates.size();
 		}
 		std::size_t total_size = nodes.size();
-		if constexpr (std::is_array_v<Input>) {
+		if constexpr ( std::is_array_v<Input> ) {
 			total_size += std::extent_v<Input>;
 		} else {
 			total_size += data_container->size();
@@ -153,7 +147,7 @@ class KD_Tree {
 
 		// reserve the space for all the data in the presorted dimensions
 		nodes.reserve( total_size );
-		if constexpr (kd_tree_types::InputContainsStaticCoordinates<Input>) {
+		if constexpr ( kd_tree_types::InputContainsStaticCoordinates<Input> ) {
 			for ( std::size_t i = 0; i < kd_tree_types::staticDimensions<Input>; i++ ) {
 				presorted_dimensions[i].reserve( total_size );
 			}
@@ -165,7 +159,7 @@ class KD_Tree {
 				presorted_dimensions[i].reserve( total_size );
 			}
 		}
-		
+
 		// add existing nodes to the presorted vectors
 		for ( Node& node : nodes ) {
 			for ( std::vector<Node*>& presorted_dim : presorted_dimensions ) {
@@ -184,16 +178,16 @@ class KD_Tree {
 		}
 
 		// actually sort the presorted dimensions
-		if constexpr (kd_tree_types::InputContainsStaticCoordinates<Input>) {
+		if constexpr ( kd_tree_types::InputContainsStaticCoordinates<Input> ) {
 			for ( std::size_t dim = 0; dim < kd_tree_types::staticDimensions<Input>; dim++ ) {
-				presort_dimension(dim);
+				presort_dimension( dim );
 			}
 		} else {
 			for ( std::size_t dim = 0; dim < dimensions; dim++ ) {
-				presort_dimension(dim);
+				presort_dimension( dim );
 			}
 		}
-		link_tree(0, total_size, 0, root);
+		link_tree( 0, total_size, 0, root );
 	}
 
 	Node* nearest_neighbor( /* const std::vector<CoordinatesType>& coordinates */ ) {
@@ -204,7 +198,7 @@ class KD_Tree {
 	}
 
 	inline Node* get_node_from_presorted_dimensions( std::size_t depth, std::size_t index ) {
-		if constexpr (kd_tree_types::InputContainsStaticCoordinates<Input>) {
+		if constexpr ( kd_tree_types::InputContainsStaticCoordinates<Input> ) {
 			return presorted_dimensions[depth % kd_tree_types::staticDimensions<Input>][index];
 		} else {
 			return presorted_dimensions[depth % dimensions][index];

@@ -33,13 +33,15 @@ class KD_Tree_Base {
 		T* data;
 	};
 
-	std::vector<Node> nodes; //NOLINT(cppcoreguidelines-non-private-member-variables-in-classes,misc-non-private-member-variables-in-classes)
+	std::vector<Node>
+		nodes;	//NOLINT(cppcoreguidelines-non-private-member-variables-in-classes,misc-non-private-member-variables-in-classes)
 
 	virtual Node* get_node_from_presorted_dimensions( std::size_t depth, std::size_t index ) = 0;
 	virtual void
 		presort_dimensions_and_push_nodes( std::vector<T>* data_vector, std::size_t data_size ) = 0;
 
-	Node* root = nullptr; //NOLINT(cppcoreguidelines-non-private-member-variables-in-classes,misc-non-private-member-variables-in-classes)
+	Node* root =
+		nullptr;  //NOLINT(cppcoreguidelines-non-private-member-variables-in-classes,misc-non-private-member-variables-in-classes)
 
 	void link_tree() {
 		if ( nodes.empty() ) {
@@ -57,25 +59,25 @@ class KD_Tree_Base {
 		root = get_node_from_presorted_dimensions( 0, root_point );
 		current_bounds.emplace_back( 0, root_point, &root->left );
 		current_bounds.emplace_back( root_point + 1, nodes.size(), &root->right );
-		
+
 		// std::size_t max_stack_size = 0;
 
 		std::vector<Bounds> next_bounds;
 		std::size_t layer = 1;
 		while ( !current_bounds.empty() ) {
 			next_bounds.clear();
-			for (Bounds& bounds : current_bounds) {
+			for ( Bounds& bounds : current_bounds ) {
 				const std::size_t midpoint = bounds.start + ( ( bounds.end - bounds.start ) / 2 );
 				Node* median = get_node_from_presorted_dimensions( layer, midpoint );
-				*(bounds.parent_link) = median; 
+				*( bounds.parent_link ) = median;
 				if ( bounds.start < midpoint ) {
-					next_bounds.emplace_back(bounds.start, midpoint, &median->left );
+					next_bounds.emplace_back( bounds.start, midpoint, &median->left );
 				}
 				if ( midpoint + 1 < bounds.end ) {
 					next_bounds.emplace_back( midpoint + 1, bounds.end, &median->right );
 				}
 			}
-			current_bounds = std::move(next_bounds);
+			current_bounds = std::move( next_bounds );
 			layer++;
 
 			// if (current_bounds.size() > max_stack_size) {
@@ -128,8 +130,8 @@ template <KDTreeVectorDataConstraint T> class KD_Tree<T> : public KD_Tree_Base<T
 	inline void presort_dimensions_and_push_nodes(
 		std::vector<T>* data_vector, std::size_t data_size
 	) final {
-		if (data_vector != nullptr && !data_vector->empty()) {
-			dimensions = (*data_vector)[0].coordinates.size();
+		if ( data_vector != nullptr && !data_vector->empty() ) {
+			dimensions = ( *data_vector )[0].coordinates.size();
 		}
 		// reserve a vector for every dimension
 		presorted_dimensions.reserve( dimensions );

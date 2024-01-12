@@ -5,6 +5,7 @@
 #include "./kd_tree_recursive_virtual.hpp"
 #include "./kd_tree_stack_optimized.hpp"
 #include "./kd_tree_stack_template.hpp"
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -20,7 +21,7 @@
 #include <unistd.h>
 #include <vector>
 
-// NOLINTBEGIN(cert-msc30-c,cert-msc50-cpp,concurrency-mt-unsafe)
+// NOLINTBEGIN(cert-msc30-c,cert-msc32-c,cert-msc50-cpp,cert-msc51-cpp,concurrency-mt-unsafe,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-constant-array-index)
 
 struct ArrayFloatData {
 	int number;
@@ -132,14 +133,11 @@ std::uint64_t time_stack_template( std::vector<T>& my_vector, std::int64_t seed 
 	return end - start;
 }
 
-struct TestResults { // I know a much easier implementation is with an array but I have sunk the cost now
+template <std::size_t test_count> struct TestResults {
+
 	// NOLINTBEGIN(misc-non-private-member-variables-in-classes)
-	std::uint64_t recursive_time = 0;
-	std::uint64_t stack_optimized_time = 0;
-	std::uint64_t layer_optimized_time = 0;
-	std::uint64_t recursive_virtual_time = 0;
-	std::uint64_t recursive_template_time = 0;
-	std::uint64_t stack_template_time = 0;
+	std::array<std::string, test_count> headers;
+	std::array<std::uint64_t, test_count> results;
 	// NOLINTEND(misc-non-private-member-variables-in-classes)
 
 	TestResults operator+( const TestResults& other ) {
@@ -148,37 +146,28 @@ struct TestResults { // I know a much easier implementation is with an array but
 		return res;
 	}
 
-	TestResults& operator+=( const TestResults& other ) {
-		recursive_time += other.recursive_time;
-		stack_optimized_time += other.stack_optimized_time;
-		layer_optimized_time += other.layer_optimized_time;
-		recursive_virtual_time += other.recursive_virtual_time;
-		recursive_template_time += other.recursive_template_time;
-		stack_template_time += other.stack_template_time;
+	TestResults& operator+=( const TestResults<test_count>& other ) {
+		for ( std::size_t i = 0; i < test_count; i++ ) {
+			results[i] += other.results[i];
+		}
 		return *this;
 	}
 
 	template <typename T>
 		requires std::is_integral_v<T>
 	TestResults& operator-=( T num ) {
-		recursive_time -= num;
-		stack_optimized_time -= num;
-		layer_optimized_time -= num;
-		recursive_virtual_time -= num;
-		recursive_template_time -= num;
-		stack_template_time -= num;
+		for ( std::size_t i = 0; i < test_count; i++ ) {
+			results[i] -= num;
+		}
 		return *this;
 	}
 
 	template <typename T>
 		requires std::is_integral_v<T>
 	TestResults& operator*=( T num ) {
-		recursive_time *= num;
-		stack_optimized_time *= num;
-		layer_optimized_time *= num;
-		recursive_virtual_time *= num;
-		recursive_template_time *= num;
-		stack_template_time *= num;
+		for ( std::size_t i = 0; i < test_count; i++ ) {
+			results[i] *= static_cast<std::uint64_t>( num );
+		}
 		return *this;
 	}
 
@@ -213,63 +202,82 @@ struct TestResults { // I know a much easier implementation is with an array but
 		if ( divisor == 0 ) {
 			throw std::invalid_argument( "Trying to divide TestResults by 0" );
 		}
-		recursive_time = static_cast<std::size_t>( recursive_time / cast_divisor );
-		stack_optimized_time = static_cast<std::size_t>( stack_optimized_time / cast_divisor );
-		layer_optimized_time = static_cast<std::size_t>( layer_optimized_time / cast_divisor );
-		recursive_virtual_time = static_cast<std::size_t>( recursive_virtual_time / cast_divisor );
-		recursive_template_time =
-			static_cast<std::size_t>( recursive_template_time / cast_divisor );
-		stack_template_time = static_cast<std::size_t>(stack_template_time / cast_divisor);
+		for ( std::size_t i = 0; i < test_count; i++ ) {
+			results[i] = static_cast<std::size_t>( results[i] / cast_divisor );
+		}
 		return *this;
 	}
 
-	std::uint64_t min() {
-		return std::min(
-			{ recursive_time,
-			  stack_optimized_time,
-			  layer_optimized_time,
-			  recursive_virtual_time,
-			  recursive_template_time,
-			  stack_template_time }
-		);
-	}
+	std::uint64_t min() { return *std::min_element( results.begin(), results.end() ); }
+
+	// clang-format should prefer to wrap in the below case
+	TestResults<test_count>(  // but it only does if this comment is here !!!
+		std::array<std::uint64_t, test_count> results,
+		std::array<std::string, test_count> headers
+	)  // Why can't the below line be here clang-format?
+		: headers( headers ), results( results ){};
+
+	template <std::size_t n = test_count>
+		requires( n == 6 )
+	explicit TestResults<6>( std::array<std::uint64_t, 6> results = std::array<std::uint64_t, 6>() )
+		: headers(
+			  { "recursive:",
+				"stack optimized:",
+				"layer optimized:",
+				"recursive virtual:",
+				"recursive template:",
+				"stack template:" }
+		  ),
+		  results( results ){};
+
+	template <std::size_t n = test_count>
+		requires( n == 3 )
+	explicit TestResults<3>( std::array<std::uint64_t, 3> results = std::array<std::uint64_t, 3>() )
+		: headers( { "recursive virtual:", "recursive template:", "stack template:" } ),
+		  results( results ){};
+	/* clang-format, its not that hard, this is so much better!
+
+	explicit TestResults<3>( std::array<std::uint64_t, 3> results ) :
+		headers( { "recursive virtual:", "recursive template:", "stack template:" } ),
+		results( results ){};
+	
+	*/
 };
 
-std::ostream& operator<<( std::ostream& stream, const TestResults& t ) {
-	return stream << "recursive time:\t" << '\t' << t.recursive_time << '\n'
-				  << "stack optimized time:" << '\t' << t.stack_optimized_time << '\n'
-				  << "layer optimized time:" << '\t' << t.layer_optimized_time << '\n'
-				  << "recursive virtual time:" << '\t' << t.recursive_virtual_time << '\n'
-				  << "recursive template time:" << '\t' << t.recursive_template_time << '\n'
-				  << "stack template time:" << '\t' << t.stack_template_time << '\n';
+template <std::size_t test_count>
+std::ostream& operator<<( std::ostream& stream, const TestResults<test_count>& t ) {
+	std::stringstream result;
+	for ( std::size_t i = 0; i < test_count; i++ ) {
+		result << t.headers[i] << '\t' << t.results[i] << '\n';
+	}
+	return stream << result.str();
 }
 
-template <std::size_t S> struct ResultTable {
-	constexpr static std::size_t columns = S;
-	std::array<std::string, S> headers;
-	std::array<TestResults, S> results;
+template <std::size_t columns, std::size_t test_count> struct ResultTable {
+	// NOLINTBEGIN(misc-non-private-member-variables-in-classes)
+	std::array<std::string, columns> headers;
+	std::array<TestResults<test_count>, columns> results;
+	// NOLINTEND(misc-non-private-member-variables-in-classes)
 
-	ResultTable<S>( std::array<std::string, S> headers, std::array<TestResults, S> results )
+	ResultTable<columns>(
+		std::array<std::string, columns> headers,
+		std::array<TestResults<test_count>, columns> results
+	)
 		: headers( headers ), results( results ){};
 };
 
-template <std::size_t S> std::ostream& operator<<( std::ostream& os, const ResultTable<S>& t ) {
-	std::array<std::stringstream, 7> rows;
+template <std::size_t columns, std::size_t test_count>
+std::ostream& operator<<( std::ostream& os, const ResultTable<columns, test_count>& t ) {
+	std::array<std::stringstream, test_count + 1> rows;
 	rows[0] << std::setw( 25 ) << ' ';
-	rows[1] << std::setw( 25 ) << "recursive time:";
-	rows[2] << std::setw( 25 ) << "stack optimized time:";
-	rows[3] << std::setw( 25 ) << "layer optimized time:";
-	rows[4] << std::setw( 25 ) << "recursive virtual time:";
-	rows[5] << std::setw( 25 ) << "recursive template time:";
-	rows[6] << std::setw( 25 ) << "stack template time:";
-	for ( std::size_t i = 0; i < t.columns; i++ ) {
+	for ( std::size_t i = 0; i < test_count; i++ ) {
+		rows[i + 1] << std::setw( 25 ) << t.results[0].headers[i];
+	}
+	for ( std::size_t i = 0; i < columns; i++ ) {
 		rows[0] << std::setw( 15 ) << t.headers[i] << std::setw( 1 ) << '|';
-		rows[1] << std::setw( 15 ) << t.results[i].recursive_time << std::setw( 1 ) << '|';
-		rows[2] << std::setw( 15 ) << t.results[i].stack_optimized_time << std::setw( 1 ) << '|';
-		rows[3] << std::setw( 15 ) << t.results[i].layer_optimized_time << std::setw( 1 ) << '|';
-		rows[4] << std::setw( 15 ) << t.results[i].recursive_virtual_time << std::setw( 1 ) << '|';
-		rows[5] << std::setw( 15 ) << t.results[i].recursive_template_time << std::setw( 1 ) << '|';
-		rows[6] << std::setw( 15 ) << t.results[i].stack_template_time << std::setw( 1 ) << '|';
+		for ( std::size_t j = 0; j < test_count; j++ ) {
+			rows[j + 1] << std::setw( 15 ) << t.results[i].results[j] << std::setw( 1 ) << '|';
+		}
 	}
 	std::stringstream result;
 	for ( const std::stringstream& row : rows ) {
@@ -287,7 +295,9 @@ std::uint64_t distance_from_median( std::vector<std::uint64_t> vec, std::size_t 
 }
 
 template <typename T>
-TestResults test_creation_for_all( const int iterations, std::size_t vector_size, T data_container ) {
+TestResults<6> test_creation_for_all(
+	const std::size_t iterations, std::size_t vector_size, T data_container
+) {
 	const std::size_t TIME_COUNT = 6;
 	std::array<std::vector<std::uint64_t>, TIME_COUNT> all_times;
 	std::cout << "KD Tree Creation" << '\n';
@@ -296,7 +306,7 @@ TestResults test_creation_for_all( const int iterations, std::size_t vector_size
 	std::cout << "[ " << std::flush;
 	const int marker_count = 25;
 	srand( time( nullptr ) );
-	for ( int i = 0; i < iterations; i++ ) {
+	for ( std::size_t i = 0; i < iterations; i++ ) {
 		int seed = rand();
 		std::array<std::uint64_t, TIME_COUNT> times = {
 			time_recursive( data_container, seed ),
@@ -320,50 +330,59 @@ TestResults test_creation_for_all( const int iterations, std::size_t vector_size
 	for ( std::vector<std::uint64_t> t : all_times ) {
 		std::sort( t.begin(), t.end() );
 	}
-	TestResults minimums = {
-		all_times[0].back(),
-		all_times[1].back(),
-		all_times[2].back(),
-		all_times[3].back(),
-		all_times[4].back(),
-		all_times[5].back()
-	};
-	TestResults maximums = {
-		all_times[0].front(),
-		all_times[1].front(),
-		all_times[2].front(),
-		all_times[3].front(),
-		all_times[4].front(),
-		all_times[5].front()
-	};
+	TestResults<6> minimums(
+		{ all_times[0].back(),
+		  all_times[1].back(),
+		  all_times[2].back(),
+		  all_times[3].back(),
+		  all_times[4].back(),
+		  all_times[5].back() }
+	);
+	TestResults<6> maximums(
+		{ all_times[0].front(),
+		  all_times[1].front(),
+		  all_times[2].front(),
+		  all_times[3].front(),
+		  all_times[4].front(),
+		  all_times[5].front() }
+	);
 	ResultTable maximum_table = {
 		std::array<std::string, 3>( { "Minimum", "Max", "Max Difference" } ),
-		std::array<TestResults, 3>( { minimums, maximums, maximums - maximums.min() } )
+		std::array<TestResults<6>, 3>( { minimums, maximums, maximums - maximums.min() } )
 	};
 	std::cout << maximum_table << std::flush;
 	std::cout << "------------------------------------------------" << '\n'
 			  << "Median times: " << '\n';
 	const std::size_t midpoint = iterations / 2;
-	TestResults results = {
-		all_times[0][midpoint],
-		all_times[1][midpoint],
-		all_times[2][midpoint],
-		all_times[3][midpoint],
-		all_times[4][midpoint],
-		all_times[5][midpoint]
-	};
+	TestResults<6> results(
+		{ all_times[0][midpoint],
+		  all_times[1][midpoint],
+		  all_times[2][midpoint],
+		  all_times[3][midpoint],
+		  all_times[4][midpoint],
+		  all_times[5][midpoint] }
+	);
 
-	TestResults median_absolute_deviation;
+	TestResults<6> median_absolute_deviation;
 	// Can be disabled if its too slow
-	for (std::size_t i = 0; i < iterations; i++ ) {
-		median_absolute_deviation += {distance_from_median(all_times[0], i), distance_from_median(all_times[1], i), distance_from_median(all_times[2], i), distance_from_median(all_times[3], i), distance_from_median(all_times[4], i), distance_from_median(all_times[5], i)};
+	for ( std::size_t i = 0; i < iterations; i++ ) {
+
+		median_absolute_deviation += TestResults<6>(
+			{ distance_from_median( all_times[0], i ),
+			  distance_from_median( all_times[1], i ),
+			  distance_from_median( all_times[2], i ),
+			  distance_from_median( all_times[3], i ),
+			  distance_from_median( all_times[4], i ),
+			  distance_from_median( all_times[5], i ) }
+		);
 	}
 	median_absolute_deviation /= iterations;
 	// Just comment to here
 
-	ResultTable results_table = {
+	ResultTable<3, 6> results_table = {
 		std::array<std::string, 3>( { "Median", "Difference", "Med.A.D." } ),
-		std::array<TestResults, 3>( { results, results - results.min(), median_absolute_deviation }
+		std::array<TestResults<6>, 3>(
+			{ results, results - results.min(), median_absolute_deviation }
 		)
 	};
 	std::cout << results_table << std::flush;
@@ -371,9 +390,9 @@ TestResults test_creation_for_all( const int iterations, std::size_t vector_size
 }
 
 void compare_creations_for_all() {
-	TestResults totals;
-	TestResults totals_per_100;
-	std::array<TestResults, 10> median_results;
+	TestResults<6> totals;
+	TestResults<6> totals_per_100;
+	std::array<TestResults<6>, 10> median_results;
 	std::array<std::string, 10> vector_size_headers;
 	for ( std::size_t i = 0; i < 10; i++ ) {
 		std::cout << "################## ARRAY INT ################### " << i + 1 << "/10" << '\n'
@@ -390,7 +409,8 @@ void compare_creations_for_all() {
 		}
 
 		vector_size_headers[i] = std::to_string( vector_size );
-		TestResults results = test_creation_for_all( 25 * ( i + 1 ), vector_size, array_int_vector );
+		TestResults results =
+			test_creation_for_all( 25 * ( i + 1 ), vector_size, array_int_vector );
 		median_results[i] = results;
 		totals_per_100 += results * 100 / vector_size;
 		totals += results;
@@ -403,7 +423,8 @@ void compare_creations_for_all() {
 		temp_per_100 /= i + 1;
 		temp_per_100 -= temp_per_100.min();
 		ResultTable rolling_table = {
-			std::array<std::string, 2>( { "Median Diff", "Per 100 Nodes" } ), std::array<TestResults, 2>( { temp, temp_per_100 } )
+			std::array<std::string, 2>( { "Median Diff", "Per 100 Nodes" } ),
+			std::array<TestResults<6>, 2>( { temp, temp_per_100 } )
 		};
 		std::cout << rolling_table << std::flush;
 	}
@@ -412,9 +433,10 @@ void compare_creations_for_all() {
 			  << "Median Totals for data size: " << '\n';
 	std::cout << median_results_table << std::flush;
 	if ( recursive_check != stack_optimized_check ||
-		stack_optimized_check != layer_optimized_check ||
-		layer_optimized_check != recursive_virtual_check ||
-		recursive_virtual_check != recursive_template_check  || recursive_template_check != stack_template_check) {
+		 stack_optimized_check != layer_optimized_check ||
+		 layer_optimized_check != recursive_virtual_check ||
+		 recursive_virtual_check != recursive_template_check ||
+		 recursive_template_check != stack_template_check ) {
 		std::cout << "################################################"
 				  << "CHECKS WRONG!!: " << '\n'
 				  << "recursive:         " << recursive_check << '\n'
@@ -431,4 +453,4 @@ int main() {
 	compare_creations_for_all();
 	return 0;
 }
-// NOLINTEND(cert-msc30-c,cert-msc50-cpp,concurrency-mt-unsafe)
+// NOLINTEND(cert-msc30-c,cert-msc32-c,cert-msc50-cpp,cert-msc51-cpp,concurrency-mt-unsafe,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-constant-array-index)

@@ -33,13 +33,13 @@ class KD_Tree_Base {
 		T* data;
 	};
 
-	std::vector<Node> nodes; // NOLINT misc-non-private-member-variables-in-classes
+	std::vector<Node> nodes;  // NOLINT misc-non-private-member-variables-in-classes
 
 	virtual Node* get_node_from_presorted_dimensions( std::size_t depth, std::size_t index ) = 0;
 	virtual void
 		presort_dimensions_and_push_nodes( std::vector<T>* data_vector, std::size_t data_size ) = 0;
 
-	Node* root = nullptr; // NOLINT misc-non-private-member-variables-in-classes
+	Node* root = nullptr;  // NOLINT misc-non-private-member-variables-in-classes
 
 	void link_tree() {
 		if ( nodes.empty() ) {
@@ -83,7 +83,6 @@ class KD_Tree_Base {
 	}
 
 	public:
-
 	void balance_tree( std::vector<T>& data_vector ) { balance_tree( &data_vector ); }
 
 	void balance_tree( std::vector<T>* data_vector = nullptr ) {
@@ -124,8 +123,8 @@ template <KDTreeVectorDataConstraint T> class KD_Tree<T> : public KD_Tree_Base<T
 	inline void presort_dimensions_and_push_nodes(
 		std::vector<T>* data_vector, std::size_t data_size
 	) final {
-		if (data_vector != nullptr && !data_vector->empty()) {
-			dimensions = (*data_vector)[0].coordinates.size();
+		if ( data_vector != nullptr && !data_vector->empty() ) {
+			dimensions = ( *data_vector )[0].coordinates.size();
 		}
 		// reserve a vector for every dimension
 		presorted_dimensions.reserve( dimensions );

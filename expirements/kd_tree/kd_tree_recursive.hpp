@@ -86,13 +86,11 @@ template <KDTreeVectorDataConstraint T> class KD_Tree<T> : KD_Tree_Base<T> {
 			*/
 	};
 
-	void balance_tree( std::vector<T>& data_vector ) { 
-		balance_tree( &data_vector );
-	}
+	void balance_tree( std::vector<T>& data_vector ) { balance_tree( &data_vector ); }
 
 	void balance_tree( std::vector<T>* data_vector = nullptr ) {
-		if (data_vector != nullptr && !data_vector->empty()) {
-			dimensions = (*data_vector)[0].coordinates.size();
+		if ( data_vector != nullptr && !data_vector->empty() ) {
+			dimensions = ( *data_vector )[0].coordinates.size();
 		}
 		std::size_t data_size =
 			( data_vector == nullptr ) ? nodes.size() : nodes.size() + data_vector->size();
