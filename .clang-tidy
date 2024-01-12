@@ -2,7 +2,7 @@ Checks: >-
   *,-llvmlibc-*,-llvm-header-guard,-modernize-use-trailing-return-type,
   -altera-*,-cppcoreguidelines-pro-type-member-init,
   -hicpp-member-init,-altera-unroll-loops,-fuchsia-default-arguments-*,
-  -fuchsia-overloaded-operator,-hicpp-use-auto
+  -fuchsia-overloaded-operator,-hicpp-use-auto,-modernize-use-auto
 WarningsAsErrors: true
 HeaderFilterRegex: '.*'
 FormatStyle: 'file'
@@ -38,6 +38,6 @@ CheckOptions:
   - key:             readability-function-cognitive-complexity.Threshold
     value:           '100'
   - key:             readability-identifier-length.IgnoredVariableNames
-    value:           '^[cntiabc]$'
+    value:           '^([cntiabc]|os)$'
   - key:             readability-identifier-length.IgnoredParameterNames
-    value:           '^[cntiabc]$'
+    value:           '^([cntiabc]|os)$'
