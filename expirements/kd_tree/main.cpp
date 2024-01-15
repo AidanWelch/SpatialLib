@@ -294,28 +294,35 @@ std::uint64_t distance_from_median( std::vector<std::uint64_t> vec, std::size_t 
 	return vec[i] - vec[midpoint];
 }
 
-template <typename T>
-TestResults<6> test_creation_for_all(
+template <std::size_t test_count, typename T>
+TestResults<test_count> run_test_block(
 	const std::size_t iterations, std::size_t vector_size, T data_container
 ) {
-	const std::size_t TIME_COUNT = 6;
-	std::array<std::vector<std::uint64_t>, TIME_COUNT> all_times;
+	std::array<std::vector<std::uint64_t>, test_count> all_times;
 	std::cout << "KD Tree Creation" << '\n';
 	std::cout << "Iterations: " << iterations;
 	std::cout << " Data length: " << vector_size << '\n';
 	std::cout << "[ " << std::flush;
 	const int marker_count = 25;
-	srand( time( nullptr ) );
 	for ( std::size_t i = 0; i < iterations; i++ ) {
 		int seed = rand();
-		std::array<std::uint64_t, TIME_COUNT> times = {
-			time_recursive( data_container, seed ),
-			time_stack_optimized( data_container, seed ),
-			time_layer_optimized( data_container, seed ),
-			time_recursive_virtual( data_container, seed ),
-			time_recursive_template( data_container, seed ),
-			time_stack_template( data_container, seed )
-		};
+		std::array<std::uint64_t, test_count> times;
+		if (test_count == 3) { 
+			times = {
+				time_recursive_virtual( data_container, seed ),
+				time_recursive_template( data_container, seed ),
+				time_stack_template( data_container, seed )
+			};
+		} else {
+			times = {
+				time_recursive( data_container, seed ),
+				time_stack_optimized( data_container, seed ),
+				time_layer_optimized( data_container, seed ),
+				0,//time_recursive_virtual( data_container, seed ),
+				0,//time_recursive_template( data_container, seed ),
+				time_stack_template( data_container, seed )
+			};
+		}
 		for ( std::size_t j = 0; j < all_times.size(); j++ ) {
 			all_times[j].emplace_back( times[j] );
 		}
@@ -330,42 +337,32 @@ TestResults<6> test_creation_for_all(
 	for ( std::vector<std::uint64_t> t : all_times ) {
 		std::sort( t.begin(), t.end() );
 	}
-	TestResults<6> minimums(
-		{ all_times[0].back(),
-		  all_times[1].back(),
-		  all_times[2].back(),
-		  all_times[3].back(),
-		  all_times[4].back(),
-		  all_times[5].back() }
-	);
-	TestResults<6> maximums(
-		{ all_times[0].front(),
-		  all_times[1].front(),
-		  all_times[2].front(),
-		  all_times[3].front(),
-		  all_times[4].front(),
-		  all_times[5].front() }
-	);
+
+	const std::size_t midpoint = iterations / 2;
+
+	std::array<std::uint64_t, test_count> minimum_list;
+	std::array<std::uint64_t, test_count> maximum_list;
+	std::array<std::uint64_t, test_count> median_list;
+
+	for (std::size_t i = 0; i < test_count; i ++) {
+		minimum_list[i] = all_times[i].back();
+		maximum_list[i] = all_times[i].front();
+		median_list[i] = all_times[i][midpoint];
+	}
+	TestResults<test_count> minimums( minimum_list );
+	TestResults<test_count> maximums( maximum_list );
 	ResultTable maximum_table = {
 		std::array<std::string, 3>( { "Minimum", "Max", "Max Difference" } ),
-		std::array<TestResults<6>, 3>( { minimums, maximums, maximums - maximums.min() } )
+		std::array<TestResults<test_count>, 3>( { minimums, maximums, maximums - maximums.min() } )
 	};
 	std::cout << maximum_table << std::flush;
 	std::cout << "------------------------------------------------" << '\n'
 			  << "Median times: " << '\n';
-	const std::size_t midpoint = iterations / 2;
-	TestResults<6> results(
-		{ all_times[0][midpoint],
-		  all_times[1][midpoint],
-		  all_times[2][midpoint],
-		  all_times[3][midpoint],
-		  all_times[4][midpoint],
-		  all_times[5][midpoint] }
-	);
+	TestResults<test_count> results( median_list );
 
-	TestResults<6> median_absolute_deviation;
+	TestResults<test_count> median_absolute_deviation;
 	// Can be disabled if its too slow
-	for ( std::size_t i = 0; i < iterations; i++ ) {
+	/* for ( std::size_t i = 0; i < iterations; i++ ) {
 
 		median_absolute_deviation += TestResults<6>(
 			{ distance_from_median( all_times[0], i ),
@@ -376,12 +373,12 @@ TestResults<6> test_creation_for_all(
 			  distance_from_median( all_times[5], i ) }
 		);
 	}
-	median_absolute_deviation /= iterations;
+	median_absolute_deviation /= iterations; */
 	// Just comment to here
 
-	ResultTable<3, 6> results_table = {
+	ResultTable<3, test_count> results_table = {
 		std::array<std::string, 3>( { "Median", "Difference", "Med.A.D." } ),
-		std::array<TestResults<6>, 3>(
+		std::array<TestResults<test_count>, 3>(
 			{ results, results - results.min(), median_absolute_deviation }
 		)
 	};
@@ -389,7 +386,8 @@ TestResults<6> test_creation_for_all(
 	return results;
 }
 
-void compare_creations_for_all() {
+void run_static_tests() {
+	srand( time( nullptr ) );
 	TestResults<6> totals;
 	TestResults<6> totals_per_100;
 	std::array<TestResults<6>, 10> median_results;
@@ -402,7 +400,7 @@ void compare_creations_for_all() {
 		std::vector<ArrayIntData> array_int_vector;
 		std::vector<VectorIntData> dynamic_int_vector;
 		for ( std::int32_t j = 0; j < static_cast<std::int32_t>( vector_size ); j++ ) {
-			array_int_vector.push_back( { j, { j, ( 2 * j ), ( 3 * j ), ( 4 * j ) } } );
+			array_int_vector.push_back( { j, { rand(), ( 2 * j ), ( 3 * j ), ( 4 * j ) } } );
 			dynamic_int_vector.emplace_back(
 				i, std::initializer_list<std::int32_t>( { j, ( 2 * j ), ( 3 * j ), ( 4 * j ) } )
 			);
@@ -410,7 +408,7 @@ void compare_creations_for_all() {
 
 		vector_size_headers[i] = std::to_string( vector_size );
 		TestResults results =
-			test_creation_for_all( 25 * ( i + 1 ), vector_size, array_int_vector );
+			run_test_block<6>( 25 * ( i + 1 ), vector_size, array_int_vector );
 		median_results[i] = results;
 		totals_per_100 += results * 100 / vector_size;
 		totals += results;
@@ -448,9 +446,69 @@ void compare_creations_for_all() {
 				  << std::flush;
 	}
 }
+/* 
+void run_dynamic_tests() {
+	TestResults<6> totals;
+	TestResults<6> totals_per_100;
+	std::array<TestResults<6>, 10> median_results;
+	std::array<std::string, 10> vector_size_headers;
+	for ( std::size_t i = 0; i < 10; i++ ) {
+		std::cout << "################## ARRAY INT ################### " << i + 1 << "/10" << '\n'
+				  << std::flush;
+		std::size_t vector_size = 200000 - ( 20000 * i );
+
+		std::vector<ArrayIntData> array_int_vector;
+		std::vector<VectorIntData> dynamic_int_vector;
+		for ( std::int32_t j = 0; j < static_cast<std::int32_t>( vector_size ); j++ ) {
+			array_int_vector.push_back( { j, { j, ( 2 * j ), ( 3 * j ), ( 4 * j ) } } );
+			dynamic_int_vector.emplace_back(
+				i, std::initializer_list<std::int32_t>( { j, ( 2 * j ), ( 3 * j ), ( 4 * j ) } )
+			);
+		}
+
+		vector_size_headers[i] = std::to_string( vector_size );
+		TestResults results =
+			run_test_block<6>( 25 * ( i + 1 ), vector_size, array_int_vector );
+		median_results[i] = results;
+		totals_per_100 += results * 100 / vector_size;
+		totals += results;
+		std::cout << "################################################" << '\n'
+				  << "Rolling Average: " << '\n';
+		TestResults temp = totals;
+		TestResults temp_per_100 = totals_per_100;
+		temp /= i + 1;
+		temp -= temp.min();
+		temp_per_100 /= i + 1;
+		temp_per_100 -= temp_per_100.min();
+		ResultTable rolling_table = {
+			std::array<std::string, 2>( { "Median Diff", "Per 100 Nodes" } ),
+			std::array<TestResults<6>, 2>( { temp, temp_per_100 } )
+		};
+		std::cout << rolling_table << std::flush;
+	}
+	ResultTable median_results_table = { vector_size_headers, median_results };
+	std::cout << "################################################" << '\n'
+			  << "Median Totals for data size: " << '\n';
+	std::cout << median_results_table << std::flush;
+	if ( recursive_check != stack_optimized_check ||
+		 stack_optimized_check != layer_optimized_check ||
+		 layer_optimized_check != recursive_virtual_check ||
+		 recursive_virtual_check != recursive_template_check ||
+		 recursive_template_check != stack_template_check ) {
+		std::cout << "################################################"
+				  << "CHECKS WRONG!!: " << '\n'
+				  << "recursive:         " << recursive_check << '\n'
+				  << "stack optimized:   " << stack_optimized_check << '\n'
+				  << "layer optimized:   " << layer_optimized_check << '\n'
+				  << "recursive virtual: " << recursive_virtual_check << '\n'
+				  << "recursive template: " << recursive_template_check << '\n'
+				  << "stack template: " << stack_template_check << '\n'
+				  << std::flush;
+	}
+} */
 
 int main() {
-	compare_creations_for_all();
+	run_static_tests();
 	return 0;
 }
 // NOLINTEND(cert-msc30-c,cert-msc32-c,cert-msc50-cpp,cert-msc51-cpp,concurrency-mt-unsafe,cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-constant-array-index)

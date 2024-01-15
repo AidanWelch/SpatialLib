@@ -154,13 +154,12 @@ template <KDTreeArrayDataConstraint T> class KD_Tree<T> {
 		T* data;
 	};
 	std::vector<Node> nodes;
-	//std::array<std::vector<Node*>, dimensions> presorted_dimensions;
+	std::array<std::vector<Node*>, dimensions> presorted_dimensions;
 
 	void link_tree(
 		const std::size_t start,
 		const std::size_t end,
 		const std::size_t depth,
-		std::array<std::vector<Node*>, dimensions>& presorted_dimensions,
 		Node*& tree_place
 	) {
 
@@ -172,8 +171,8 @@ template <KDTreeArrayDataConstraint T> class KD_Tree<T> {
 		const std::size_t midpoint = start + ( ( end - start ) / 2 );
 		tree_place = presorted_dimensions[depth % dimensions][midpoint];
 
-		link_tree( start, midpoint, depth + 1, presorted_dimensions, tree_place->left );
-		link_tree( midpoint + 1, end, depth + 1, presorted_dimensions, tree_place->right );
+		link_tree( start, midpoint, depth + 1, tree_place->left );
+		link_tree( midpoint + 1, end, depth + 1, tree_place->right );
 	}
 
 	Node* root = nullptr;
@@ -225,7 +224,7 @@ template <KDTreeArrayDataConstraint T> class KD_Tree<T> {
 
 		// reserve the space for all the data in the presorted dimensions
 		nodes.reserve( data_size );
-		std::array<std::vector<Node*>, dimensions> presorted_dimensions;
+		// std::array<std::vector<Node*>, dimensions> presorted_dimensions;
 		for ( std::vector<Node*>& presorted_dim : presorted_dimensions ) {
 			presorted_dim.reserve( data_size );
 		}
@@ -258,7 +257,7 @@ template <KDTreeArrayDataConstraint T> class KD_Tree<T> {
 			);
 		}
 
-		link_tree( 0, nodes.size(), 0, presorted_dimensions, root );
+		link_tree( 0, nodes.size(), 0, root );
 		//for ( std::vector<Node*>& presorted_dim : presorted_dimensions ) {
 		//	presorted_dim.clear();
 		//}
