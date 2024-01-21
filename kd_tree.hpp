@@ -1,5 +1,5 @@
-///////////////////////////////////////////////////////////////////////////////
-/* Copyright (c) <2023> <Aidan Welch>
+////////////////////////////////////////////////////////////////////////////////
+/* Copyright (c) <2024> <Aidan Welch>
 
 Permission is hereby granted, free of charge, to any person (except as 
 specified below) obtaining a copy of this software and associated documentation
@@ -12,11 +12,11 @@ This permission IS NOT granted for use by or distribution to entities within
 any or all of the following categories:
 	- Annual Revenue in any year since 2020 exceeding $250,000 US Dollars.
 	- Government Entities
-	- Total funding from any government entity exceeding $10,000 US Dollars.
+	- Total funding from all government entities exceeding $10,000 US Dollars.
 	- Political Action Committees
 	- Received any funding from a Political Action Committee.
 
-Entities meeting these categories should contact the copyright holder for
+Entities within these categories should contact the copyright holder for
 licensing at: aidan@freedwave.com
 
 The above copyright notice and this permission notice shall be included in all
@@ -30,7 +30,15 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
-///////////////////////////////////////////////////////////////////////////////
+
+/* Acknowledgements:
+
+Construction:
+	"A New Method to Construct the KD Tree Based on Presorted Results"
+	Yu Cao, Huizan Wang, Wenjing Zhao, Boheng Duan, and Xiaojiang Zhang
+	https://doi.org/10.1155/2020/8883945
+*/
+////////////////////////////////////////////////////////////////////////////////
 
 #ifndef SPATIAL_LIB_KD_TREE_HPP_
 #define SPATIAL_LIB_KD_TREE_HPP_
@@ -39,6 +47,7 @@ SOFTWARE. */
 #include <cmath>
 #include <concepts>
 #include <cstddef>
+#include <memory>
 #include <tuple>
 #include <type_traits>
 #include <vector>
@@ -107,9 +116,9 @@ constexpr std::size_t staticDimensions<T> = staticSize<decltype( T::value_type::
 
 }  // namespace kd_tree_types
 
-template <kd_tree_types::IsValidInput Input> class KD_Tree {
+template <kd_tree_types::IsValidInput Input, typename WrappedInput> class KD_Tree {
 
-	Input input_data;
+	WrappedInput input_data;
 
 	using DataType = std::conditional_t<
 		std::is_array_v<Input>,
@@ -165,12 +174,12 @@ template <kd_tree_types::IsValidInput Input> class KD_Tree {
 	public:
 	/// Only pass a pointer to the KD Tree if you're sure that input_data will be preserved
 	/// in scope for the lifetime of the KD Tree.
-	explicit KD_Tree<Input>( Input* input_data ) { generate_tree( input_data ); };
+	explicit KD_Tree( std::shared_ptr<Input> input_data ) noexcept : input_data(input_data) { generate_tree( this->input_data.get() ); };
 
 	/// Passing by value leads to the value being moved, this should only be done to preserve
 	/// the input_data if it would otherwise go out of scope.
-	explicit KD_Tree<Input>( Input input_data ) : input_data( std::move( input_data ) ) {
-		generate_tree( &( this->input_data ) );
+	explicit KD_Tree( Input&& input_data ) noexcept : input_data(std::move(input_data)) {
+		generate_tree( &this->input_data );
 	}
 
 	void generate_tree( Input* data_container = nullptr ) {
@@ -246,6 +255,12 @@ template <kd_tree_types::IsValidInput Input> class KD_Tree {
 		}
 	}
 };
+
+template<kd_tree_types::IsValidInput Input>
+KD_Tree(Input&& input_data) -> KD_Tree<Input, Input&&>;
+
+template<kd_tree_types::IsValidInput Input>
+KD_Tree(std::shared_ptr<Input> input_data) -> KD_Tree<Input, std::shared_ptr<Input>>;
 
 }  //  namespace spatial_lib
 
