@@ -44,14 +44,12 @@ Construction:
 #define SPATIAL_LIB_KD_TREE_HPP_
 
 #include <array>
-#include <cmath>
 #include <concepts>
 #include <cstddef>
+#include <execution>
 #include <memory>
-#include <tuple>
 #include <type_traits>
 #include <vector>
-#include <execution>
 
 namespace spatial_lib {
 
@@ -67,13 +65,11 @@ template <typename T> concept IsValidCoordinates =
 		{ a[index] < b[index] } -> std::convertible_to<bool>;
 	};
 
-template <typename T> concept IsValidDataType = IsValidCoordinates<decltype( T::coordinates )>;
-
 template <typename Container> concept InputContainsValidDataTypeNotCArray =
-	IsValidDataType<typename Container::value_type>;
+	IsValidCoordinates<decltype(Container::value_type::coordinates)>;
 
 template <typename Container> concept InputCArrayContainsValidDataType =
-	std::is_array_v<Container> && IsValidDataType<std::remove_all_extents_t<Container>>;
+	std::is_array_v<Container> && IsValidCoordinates<decltype(std::remove_all_extents_t<Container>::coordinates)>;
 
 template <typename Container> concept IsDynamicContainer = requires( Container container ) {
 	{ container.push_back( Container::value_type ) } -> std::same_as<void>;
@@ -179,7 +175,7 @@ template <kd_tree_types::IsValidInput Input, typename WrappedInput> class KD_Tre
 	/// Passing by value leads to the value being moved, this should only be done to preserve
 	/// the input_data if it would otherwise go out of scope.
 	explicit KD_Tree( Input&& input_data ) noexcept : input_data(std::move(input_data)) {
-		generate_tree( &this->input_data );
+		generate_tree( &(this->input_data) );
 	}
 
 	void generate_tree( Input* data_container = nullptr ) {
