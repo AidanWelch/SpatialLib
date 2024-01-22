@@ -1,8 +1,8 @@
+#include "../kd_tree.hpp"
 #include <array>
 #include <iostream>
 #include <memory>
 #include <vector>
-#include "../kd_tree.hpp"
 
 struct Value {
 	std::array<int, 4> coordinates;
