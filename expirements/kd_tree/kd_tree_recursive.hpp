@@ -170,8 +170,18 @@ template <KDTreeArrayDataConstraint T> class KD_Tree<T> {
 
 		const std::size_t midpoint = start + ( ( end - start ) / 2 );
 		tree_place = presorted_dimensions[depth % dimensions][midpoint];
+		Node* orig_p = tree_place;
+
+		if (tree_place->left != nullptr || tree_place->right != nullptr) {
+			throw "ruh roh";// the presorted dimensions make no sense actually
+			// because if I'm blocking off a chunk of elements from a - b in one dimension
+			// those are completely different elements in another dimensional array
+		}
 
 		link_tree( start, midpoint, depth + 1, tree_place->left );
+		if (tree_place == nullptr) {
+			throw "ruh ro";
+		}
 		link_tree( midpoint + 1, end, depth + 1, tree_place->right );
 	}
 
