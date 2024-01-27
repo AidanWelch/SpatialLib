@@ -75,24 +75,25 @@ template <typename Container> concept IsDynamicContainer = requires( Container c
 	{ container.push_back( Container::value_type ) } -> std::same_as<void>;
 };
 
-template <typename Container> concept IsValidInput = IsContainer<Container> &&
+template <typename Container> concept IsValidInput = (!std::is_lvalue_reference_v<Container>) &&
+	IsContainer<Container> &&
 	( InputCArrayContainsValidDataType<Container> ||
 	  InputContainsValidDataTypeNotCArray<Container> );
 
 template <typename Container> concept IsStaticContainer =
 	IsContainer<Container> && ( !IsDynamicContainer<Container> );
-template <typename Container> concept IsCArray = std::is_array_v<Container>;
+
 template <typename Container> concept IsStaticContainerNotCArray =
-	IsStaticContainer<Container> && ( !IsCArray<Container> );
+	IsStaticContainer<Container> && ( !std::is_array_v<Container> );
 
 template <typename T> constexpr const void* staticSize = nullptr;
 
 template <IsStaticContainerNotCArray T> constexpr std::size_t staticSize<T> = std::tuple_size_v<T>;
 
-template <IsCArray T> constexpr std::size_t staticSize<T> = std::extent_v<T>;
+template <typename T, std::size_t N> constexpr std::size_t staticSize<T[N]> = N; // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
 
 template <typename Container> concept InputContainsStaticCoordinates =
-	(IsCArray<Container> &&
+	(std::is_array_v<Container> &&
 	 IsStaticContainer<decltype( std::remove_all_extents_t<Container>::coordinates )>) ||
 	IsStaticContainer<decltype( Container::value_type::coordinates )>;
 
@@ -170,7 +171,7 @@ template <kd_tree_types::IsValidInput Input, typename WrappedInput> class KD_Tre
 	public:
 	/// Only pass a pointer to the KD Tree if you're sure that input_data will be preserved
 	/// in scope for the lifetime of the KD Tree.
-	explicit KD_Tree( std::shared_ptr<Input> input_data ) noexcept : input_data(input_data) { generate_tree( this->input_data.get() ); };
+	explicit KD_Tree( std::shared_ptr<Input> input_data ) noexcept : input_data(input_data) { generate_tree( this->input_data.get() ); }
 
 	/// Passing by value leads to the value being moved, this should only be done to preserve
 	/// the input_data if it would otherwise go out of scope.
